@@ -1,15 +1,20 @@
-"""Render the GitHub Pages landing page: build/site/index.html.
+"""Render the GitHub Pages landing page: build/site/index.html (+ labels.geojson).
 
 A self-contained map that renders the waterways vector tiles (served alongside
-it under tiles/vector/) so the Pages root is a live preview of the layer rather
-than a bare directory.
+it under tiles/vector/) so the Pages root is a live preview of the layer.
 
 Uses Leaflet + Leaflet.VectorGrid, which draws the MVT tiles to a Canvas (no
-WebGL). This works on browsers/machines where WebGL is unavailable, unlike
-MapLibre GL. Config-dependent values are injected via token replacement to avoid
-escaping the many braces in the inline CSS/JS.
+WebGL) over an OpenStreetMap raster base. Leaflet.VectorGrid cannot draw
+text-along-line, so watercourse names are emitted at build time as a small
+labels.geojson (one point per named watercourse, at the midpoint of its longest
+segment) and rendered as zoom-gated text markers.
+
+Config-dependent values are injected via token replacement to avoid escaping the
+many braces in the inline CSS/JS.
 """
 
+import json
+import math
 import os
 
 from src import config
@@ -37,6 +42,10 @@ _TEMPLATE = """<!DOCTYPE html>
   #panel code { background: #eef3f6; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
   .legend { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
   .swatch { width: 22px; height: 3px; border-radius: 2px; }
+  .wlabel {
+    color: #134a73; font-size: 12px; font-weight: 600; white-space: nowrap;
+    text-shadow: -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff, 1px 1px 1px #fff;
+  }
 </style>
 </head>
 <body>
@@ -54,6 +63,11 @@ _TEMPLATE = """<!DOCTYPE html>
 </div>
 <script>
 const map = L.map('map', { center: [43.72, -79.37], zoom: 11, minZoom: __MINZOOM__, maxZoom: __MAXZOOM__ });
+
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: __MAXZOOM__,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 map.attributionControl.addAttribution('__ATTRIBUTION__');
 
 function style(props, zoom) {
@@ -78,6 +92,24 @@ layer.on('click', function (e) {
     .setContent('<b>' + name + '</b><br>' + (p.class || ''))
     .openOn(map);
 });
+
+// Name labels: a small point layer, shown only when zoomed in enough.
+const labels = L.layerGroup();
+const LABEL_MIN_ZOOM = 12;
+fetch('labels.geojson').then(r => r.json()).then(fc => {
+  L.geoJSON(fc, {
+    pointToLayer: (f, latlng) => L.marker(latlng, {
+      interactive: false,
+      icon: L.divIcon({ className: 'wlabel', html: f.properties.name, iconSize: null })
+    })
+  }).addTo(labels);
+  updateLabels();
+});
+function updateLabels() {
+  if (map.getZoom() >= LABEL_MIN_ZOOM) { if (!map.hasLayer(labels)) labels.addTo(map); }
+  else if (map.hasLayer(labels)) { map.removeLayer(labels); }
+}
+map.on('zoomend', updateLabels);
 </script>
 </body>
 </html>
@@ -85,8 +117,10 @@ layer.on('click', function (e) {
 
 
 def build_site():
-    """Write build/site/index.html. Returns its path."""
+    """Write build/site/index.html and build/site/labels.geojson. Returns the html path."""
     os.makedirs(config.SITE_DIR, exist_ok=True)
+    _write_labels()
+
     html = (
         _TEMPLATE
         .replace("__LAYER__", config.VECTOR_LAYER_NAME)
@@ -101,3 +135,77 @@ def build_site():
         f.write(html)
     print(f"Site: {out_path}")
     return out_path
+
+
+def _write_labels():
+    """Emit one label point per named watercourse from the slim GeoJSONL.
+
+    Each watercourse's label sits at the midpoint of its longest single segment,
+    a stable, on-the-line spot. Written to build/site/labels.geojson.
+    """
+    if not os.path.isfile(config.SLIM_PATH):
+        raise RuntimeError(
+            f"Slim GeoJSONL not found: {config.SLIM_PATH}. Run 'slim' first."
+        )
+
+    best = {}  # name -> (length, midpoint [lon, lat])
+    with open(config.SLIM_PATH, encoding="utf-8") as f:
+        for line in f:
+            feat = json.loads(line)
+            name = (feat.get("properties") or {}).get("name")
+            if not name:
+                continue
+            for seg in _segments(feat["geometry"]):
+                length, mid = _line_length_midpoint(seg)
+                if name not in best or length > best[name][0]:
+                    best[name] = (length, mid)
+
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": mid},
+            "properties": {"name": name},
+        }
+        for name, (_, mid) in sorted(best.items())
+    ]
+    out_path = os.path.join(config.SITE_DIR, "labels.geojson")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump({"type": "FeatureCollection", "features": features}, f)
+    print(f"Labels: {out_path} ({len(features)} named watercourses)")
+
+
+def _segments(geom):
+    """Yield each coordinate list (one LineString) from a (Multi)LineString."""
+    if geom["type"] == "LineString":
+        yield geom["coordinates"]
+    else:
+        yield from geom["coordinates"]
+
+
+def _line_length_midpoint(coords):
+    """Return (length, [lon, lat]) where the point is halfway along the line.
+
+    Length is an approximate planar metric in metres (good enough to compare
+    segments of the same watercourse). The midpoint is interpolated at half the
+    cumulative length, so the label lands on the line rather than at a vertex.
+    """
+    cos_lat = math.cos(math.radians(coords[0][1]))
+    dists = []
+    total = 0.0
+    for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
+        dx = (x2 - x1) * 111320 * cos_lat
+        dy = (y2 - y1) * 110540
+        d = math.hypot(dx, dy)
+        dists.append(d)
+        total += d
+    if total == 0:
+        return 0.0, list(coords[0])
+
+    half = total / 2
+    run = 0.0
+    for (p1, p2), d in zip(zip(coords, coords[1:]), dists):
+        if run + d >= half:
+            t = (half - run) / d if d else 0
+            return total, [p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t]
+        run += d
+    return total, list(coords[-1])
