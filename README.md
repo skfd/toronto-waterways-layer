@@ -49,8 +49,8 @@ download  ->  slim  ->  vector  ->  site  ->  publish
    keeping only watercourses, and write a compact newline-delimited GeoJSON.
 3. **vector** — drive `tippecanoe` + `tile-join` inside WSL to produce the
    `{z}/{x}/{y}.pbf` pyramid.
-4. **site** — render `build/site/index.html`, a self-contained MapLibre map that
-   previews the tiles.
+4. **site** — render `build/site/index.html`, a Leaflet + VectorGrid map
+   (Canvas, no WebGL) that previews the tiles.
 5. **publish** — force-push `build/site/` as a single orphan commit to the
    `gh-pages` branch (history never grows).
 

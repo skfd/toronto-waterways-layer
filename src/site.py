@@ -1,9 +1,13 @@
 """Render the GitHub Pages landing page: build/site/index.html.
 
-A self-contained MapLibre GL map that renders the waterways vector tiles
-(served alongside it under tiles/vector/) so the Pages root is a live preview of
-the layer rather than a bare directory. Values that vary by config are injected
-via token replacement to avoid escaping the many braces in the inline CSS/JS.
+A self-contained map that renders the waterways vector tiles (served alongside
+it under tiles/vector/) so the Pages root is a live preview of the layer rather
+than a bare directory.
+
+Uses Leaflet + Leaflet.VectorGrid, which draws the MVT tiles to a Canvas (no
+WebGL). This works on browsers/machines where WebGL is unavailable, unlike
+MapLibre GL. Config-dependent values are injected via token replacement to avoid
+escaping the many braces in the inline CSS/JS.
 """
 
 import os
@@ -17,13 +21,14 @@ _TEMPLATE = """<!DOCTYPE html>
 <meta charset="utf-8" />
 <title>Toronto Waterways</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
 <style>
   html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
-  #map { position: absolute; inset: 0; }
+  #map { position: absolute; inset: 0; background: #eaf0f4; }
   #panel {
-    position: absolute; top: 12px; left: 12px; z-index: 1; max-width: 320px;
+    position: absolute; top: 12px; left: 12px; z-index: 1000; max-width: 320px;
     background: rgba(255,255,255,0.92); padding: 14px 16px; border-radius: 8px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.25); font-size: 13px; line-height: 1.45;
   }
@@ -40,7 +45,7 @@ _TEMPLATE = """<!DOCTYPE html>
   <h1>Toronto Waterways</h1>
   <p>Rivers and creeks from the
      <a href="__DATASET_PAGE__" target="_blank" rel="noopener">Toronto Centreline</a>,
-     served as vector tiles.</p>
+     served as vector tiles. Click a watercourse for its name.</p>
   <div class="legend"><span class="swatch" style="background:#2b6cb0"></span> River</div>
   <div class="legend"><span class="swatch" style="background:#63b3ed"></span> Creek / Tributary</div>
   <p style="margin-top:10px">Tiles: <code>tiles/vector/{z}/{x}/{y}.pbf</code><br>
@@ -48,61 +53,31 @@ _TEMPLATE = """<!DOCTYPE html>
   <p><a href="https://github.com/__REPO__" target="_blank" rel="noopener">Source &amp; docs on GitHub</a></p>
 </div>
 <script>
-const map = new maplibregl.Map({
-  container: 'map',
-  center: [-79.37, 43.72],
-  zoom: 10,
-  attributionControl: { compact: false },
-  style: {
-    version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    sources: {
-      waterways: {
-        type: 'vector',
-        tiles: [location.href.replace(/[^/]*$/, '') + 'tiles/vector/{z}/{x}/{y}.pbf'],
-        minzoom: __MINZOOM__,
-        maxzoom: __MAXZOOM__,
-        attribution: '__ATTRIBUTION__'
-      }
-    },
-    layers: [
-      { id: 'bg', type: 'background', paint: { 'background-color': '#eaf0f4' } },
-      {
-        id: 'waterways-line', type: 'line', source: 'waterways',
-        'source-layer': '__LAYER__',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': [
-            'match', ['get', 'class'],
-            'Creek/Tributary', '#63b3ed',
-            '#2b6cb0'
-          ],
-          'line-width': [
-            'interpolate', ['linear'], ['zoom'],
-            9, 0.6, 13, 1.6, 16, 3, 19, 6
-          ]
-        }
-      },
-      {
-        id: 'waterways-label', type: 'symbol', source: 'waterways',
-        'source-layer': '__LAYER__', minzoom: 12,
-        layout: {
-          'symbol-placement': 'line',
-          'text-field': ['get', 'name'],
-          'text-font': ['Open Sans Regular'],
-          'text-size': 12
-        },
-        paint: {
-          'text-color': '#1a4971',
-          'text-halo-color': '#ffffff',
-          'text-halo-width': 1.4
-        }
-      }
-    ]
-  }
+const map = L.map('map', { center: [43.72, -79.37], zoom: 11, minZoom: __MINZOOM__, maxZoom: __MAXZOOM__ });
+map.attributionControl.addAttribution('__ATTRIBUTION__');
+
+function style(props, zoom) {
+  const creek = props.class === 'Creek/Tributary';
+  const weight = zoom < 12 ? 1 : zoom < 15 ? 1.5 : zoom < 17 ? 2.5 : 4;
+  return { color: creek ? '#63b3ed' : '#2b6cb0', weight: weight, opacity: 0.9 };
+}
+
+const layer = L.vectorGrid.protobuf('tiles/vector/{z}/{x}/{y}.pbf', {
+  rendererFactory: L.canvas.tile,
+  minZoom: __MINZOOM__,
+  maxZoom: __MAXZOOM__,
+  maxNativeZoom: __MAXZOOM__,
+  interactive: true,
+  vectorTileLayerStyles: { '__LAYER__': style }
+}).addTo(map);
+
+layer.on('click', function (e) {
+  const p = e.layer.properties || {};
+  const name = p.name || '(unnamed watercourse)';
+  L.popup().setLatLng(e.latlng)
+    .setContent('<b>' + name + '</b><br>' + (p.class || ''))
+    .openOn(map);
 });
-map.addControl(new maplibregl.NavigationControl(), 'top-right');
-map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }));
 </script>
 </body>
 </html>
