@@ -33,6 +33,12 @@ def cmd_vector(args):
     build_vector()
 
 
+def cmd_site(args):
+    _banner("Site")
+    from src.site import build_site
+    build_site()
+
+
 def cmd_publish(args):
     _banner("Publish")
     from src.publish import publish
@@ -43,6 +49,7 @@ def cmd_build(args):
     cmd_download(args)
     cmd_slim(args)
     cmd_vector(args)
+    cmd_site(args)
 
 
 def cmd_update(args):
@@ -67,8 +74,9 @@ COMMANDS = {
     "download": (cmd_download, "Download the latest TCL centreline GeoJSON"),
     "slim": (cmd_slim, "Filter to watercourses + convert into slim GeoJSONL"),
     "vector": (cmd_vector, "Build vector (MVT) tiles via WSL tippecanoe"),
+    "site": (cmd_site, "Render the GitHub Pages landing page"),
     "publish": (cmd_publish, "Force-push the site to the gh-pages branch"),
-    "build": (cmd_build, "download + slim + vector"),
+    "build": (cmd_build, "download + slim + vector + site"),
     "update": (cmd_update, "build + publish (daily scheduled-task entry point)"),
 }
 

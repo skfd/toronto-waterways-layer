@@ -39,7 +39,7 @@ are simplified at low zoom but never dropped.
 ## Build pipeline
 
 ```
-download  ->  slim  ->  vector  ->  publish
+download  ->  slim  ->  vector  ->  site  ->  publish
 ```
 
 1. **download** — fetch the latest TCL centreline GeoJSON from the Toronto Open
@@ -49,7 +49,9 @@ download  ->  slim  ->  vector  ->  publish
    keeping only watercourses, and write a compact newline-delimited GeoJSON.
 3. **vector** — drive `tippecanoe` + `tile-join` inside WSL to produce the
    `{z}/{x}/{y}.pbf` pyramid.
-4. **publish** — force-push `build/site/` as a single orphan commit to the
+4. **site** — render `build/site/index.html`, a self-contained MapLibre map that
+   previews the tiles.
+5. **publish** — force-push `build/site/` as a single orphan commit to the
    `gh-pages` branch (history never grows).
 
 ## Usage
@@ -60,7 +62,8 @@ pip install -r requirements.txt
 python run.py download   # fetch the TCL centreline GeoJSON
 python run.py slim       # filter to watercourses -> data/waterways-slim.geojsonl
 python run.py vector     # build MVT tiles via WSL tippecanoe
-python run.py build      # download + slim + vector
+python run.py site       # render build/site/index.html (map preview)
+python run.py build      # download + slim + vector + site
 python run.py publish    # force-push tiles to the gh-pages branch
 python run.py update     # build + publish (daily scheduled-task entry point)
 ```
