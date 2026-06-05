@@ -59,6 +59,7 @@ _TEMPLATE = """<!DOCTYPE html>
   <div class="legend"><span class="swatch" style="background:#63b3ed"></span> Creek / Tributary</div>
   <p style="margin-top:10px">Tiles: <code>tiles/vector/{z}/{x}/{y}.pbf</code><br>
      Layer <code>__LAYER__</code>, zoom __MINZOOM__&ndash;__MAXZOOM__.</p>
+  <p><a href="gaps.html">See which reaches are missing from OpenStreetMap &rarr;</a></p>
   <p><a href="https://github.com/__REPO__" target="_blank" rel="noopener">Source &amp; docs on GitHub</a></p>
 </div>
 <script>

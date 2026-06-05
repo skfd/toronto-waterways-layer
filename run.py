@@ -39,6 +39,12 @@ def cmd_site(args):
     build_site()
 
 
+def cmd_gaps(args):
+    _banner("OSM gaps")
+    from src.gaps import build_gaps_site
+    build_gaps_site(refresh=args.refresh_osm)
+
+
 def cmd_publish(args):
     _banner("Publish")
     from src.publish import publish
@@ -50,6 +56,7 @@ def cmd_build(args):
     cmd_slim(args)
     cmd_vector(args)
     cmd_site(args)
+    cmd_gaps(args)
 
 
 def cmd_update(args):
@@ -75,8 +82,9 @@ COMMANDS = {
     "slim": (cmd_slim, "Filter to watercourses + convert into slim GeoJSONL"),
     "vector": (cmd_vector, "Build vector (MVT) tiles via WSL tippecanoe"),
     "site": (cmd_site, "Render the GitHub Pages landing page"),
+    "gaps": (cmd_gaps, "Overlay OSM and render the 'missing from OSM' visualisation"),
     "publish": (cmd_publish, "Force-push the site to the gh-pages branch"),
-    "build": (cmd_build, "download + slim + vector + site"),
+    "build": (cmd_build, "download + slim + vector + site + gaps"),
     "update": (cmd_update, "build + publish (daily scheduled-task entry point)"),
 }
 
@@ -93,6 +101,11 @@ def main():
                 "--force", action="store_true",
                 help="Re-download even if the remote file is unchanged",
             )
+        if name in ("gaps", "build", "update"):
+            p.add_argument(
+                "--refresh-osm", action="store_true",
+                help="Re-fetch the OSM waterway overlay instead of using the cache",
+            )
 
     args = parser.parse_args()
     if args.command is None:
@@ -100,6 +113,8 @@ def main():
         return
     if not hasattr(args, "force"):
         args.force = False
+    if not hasattr(args, "refresh_osm"):
+        args.refresh_osm = False
 
     COMMANDS[args.command][0](args)
 

@@ -39,7 +39,7 @@ are simplified at low zoom but never dropped.
 ## Build pipeline
 
 ```
-download  ->  slim  ->  vector  ->  site  ->  publish
+download  ->  slim  ->  vector  ->  site  ->  gaps  ->  publish
 ```
 
 1. **download** — fetch the latest TCL centreline GeoJSON from the Toronto Open
@@ -52,7 +52,12 @@ download  ->  slim  ->  vector  ->  site  ->  publish
 4. **site** — render `build/site/index.html`, a Leaflet + VectorGrid map
    (Canvas, no WebGL) over an OpenStreetMap base, plus `labels.geojson` (one
    name point per watercourse) for zoom-gated labels.
-5. **publish** — force-push `build/site/` as a single orphan commit to the
+5. **gaps** — overlay every OSM `waterway` line (fetched once from the Overpass
+   API and cached) on the TCL watercourses and flag each reach with no OSM line
+   within 40 m. Writes `build/site/gaps.html`, a map of what OSM is *missing*
+   (~14 km / 4.4 % of the network, mostly buried/culverted creeks), plus the
+   `osm-gaps.geojson` it draws.
+6. **publish** — force-push `build/site/` as a single orphan commit to the
    `gh-pages` branch (history never grows).
 
 ## Usage
@@ -64,7 +69,8 @@ python run.py download   # fetch the TCL centreline GeoJSON
 python run.py slim       # filter to watercourses -> data/waterways-slim.geojsonl
 python run.py vector     # build MVT tiles via WSL tippecanoe
 python run.py site       # render build/site/index.html (map preview)
-python run.py build      # download + slim + vector + site
+python run.py gaps       # overlay OSM -> build/site/gaps.html ("missing from OSM")
+python run.py build      # download + slim + vector + site + gaps
 python run.py publish    # force-push tiles to the gh-pages branch
 python run.py update     # build + publish (daily scheduled-task entry point)
 ```
