@@ -1,0 +1,16 @@
+{
+"name": "Toronto Waterways",
+"description": "Toronto Waterways",
+"version": "2",
+"minzoom": "9",
+"maxzoom": "19",
+"center": "-79.576378,43.640299,19",
+"bounds": "-79.631653,43.584370,-79.115295,43.848394",
+"antimeridian_adjusted_bounds": "-79.631653,43.584370,-79.115295,43.848394",
+"type": "overlay",
+"attribution": "(c) City of Toronto, Open Government Licence - Toronto",
+"format": "pbf",
+"generator": "tile-join v2.49.0",
+"generator_options": "tippecanoe -o /mnt/c/Users/kk/Code/toronto-waterways-layer/build/waterways.mbtiles -Z9 -z19 --no-tile-size-limit --no-feature-limit -l waterways -n 'Toronto Waterways' -A '(c) City of Toronto, Open Government Licence - Toronto' --force /mnt/c/Users/kk/Code/toronto-waterways-layer/data/waterways-slim.geojsonl; tile-join -e /tmp/toronto-waterways-vector-tiles --no-tile-compression /mnt/c/Users/kk/Code/toronto-waterways-layer/build/waterways.mbtiles",
+"json": "{\"vector_layers\":[{\"id\":\"waterways\",\"description\":\"\",\"minzoom\":9,\"maxzoom\":19,\"fields\":{\"class\":\"String\",\"name\":\"String\",\"name_id\":\"Number\"}}],\"tilestats\":{\"layerCount\":1,\"layers\":[{\"layer\":\"waterways\",\"count\":24999,\"geometry\":\"LineString\",\"attributeCount\":3,\"attributes\":[{\"attribute\":\"class\",\"count\":2,\"type\":\"string\",\"values\":[\"Creek/Tributary\",\"River\"]},{\"attribute\":\"name\",\"count\":41,\"type\":\"string\",\"values\":[\"Adams Creek\",\"Albion Creek\",\"Bellamy Ravine Creek\",\"Berry Creek\",\"Black Creek\",\"Burke Brook\",\"Cedarvale Ravine\",\"Centennial Creek\",\"Cudmore Creek\",\"Curran Hall Creek\",\"Don River\",\"Don River E Branch\",\"Don River W Branch\",\"Duncan Creek\",\"East Highland Creek\",\"Ellesmere Ravine\",\"Elmcrest Creek\",\"Emery Creek\",\"Etobicoke Creek\",\"Highland Creek\",\"Humber Creek\",\"Humber River\",\"Humber River E Branch\",\"Humber River Trib\",\"Humber River W Branch\",\"Keating Channel\",\"Lavender Creek\",\"Little Rouge River\",\"Massey Creek\",\"Mimico Creek\",\"Rouge River\",\"Sheppard Creek\",\"Silver Creek\",\"Taylor Creek\",\"Thornton Creek\",\"Trib. Don River\",\"West Highland Creek\",\"West Hill Creek\",\"West Hill Watercourse\",\"Wilket Creek\",\"Yellow Creek\"]},{\"attribute\":\"name_id\",\"count\":41,\"type\":\"number\",\"values\":[101,103,10369,10509,10549,10679,10680,11004,11210,11211,11346,14906,1570,1828,1831,2120,242,30231,30232,30233,30234,30235,30236,30237,30238,30239,30240,30246,30302,352,3757,452,493,5403,5454,677,7086,8103,8106,8345,8844],\"min\":101,\"max\":30302}]}]}}"
+}

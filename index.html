@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Toronto Waterways</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.vectorgrid@1.3.0/dist/Leaflet.VectorGrid.bundled.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+  #map { position: absolute; inset: 0; background: #eaf0f4; }
+  #panel {
+    position: absolute; top: 12px; left: 12px; z-index: 1000; max-width: 320px;
+    background: rgba(255,255,255,0.92); padding: 14px 16px; border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.25); font-size: 13px; line-height: 1.45;
+  }
+  #panel h1 { font-size: 16px; margin: 0 0 6px; }
+  #panel a { color: #2b6cb0; }
+  #panel code { background: #eef3f6; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+  .legend { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .swatch { width: 22px; height: 3px; border-radius: 2px; }
+  .wlabel {
+    color: #134a73; font-size: 12px; font-weight: 600; white-space: nowrap;
+    text-shadow: -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff, 1px 1px 1px #fff;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <h1>Toronto Waterways</h1>
+  <p>Rivers and creeks from the
+     <a href="https://open.toronto.ca/dataset/toronto-centreline-tcl/" target="_blank" rel="noopener">Toronto Centreline</a>,
+     served as vector tiles. Click a watercourse for its name.</p>
+  <div class="legend"><span class="swatch" style="background:#2b6cb0"></span> River</div>
+  <div class="legend"><span class="swatch" style="background:#63b3ed"></span> Creek / Tributary</div>
+  <p style="margin-top:10px">Tiles: <code>tiles/vector/{z}/{x}/{y}.pbf</code><br>
+     Layer <code>waterways</code>, zoom 9&ndash;19.</p>
+  <p><a href="https://github.com/skfd/toronto-waterways-layer" target="_blank" rel="noopener">Source &amp; docs on GitHub</a></p>
+</div>
+<script>
+const map = L.map('map', { center: [43.72, -79.37], zoom: 11, minZoom: 9, maxZoom: 19 });
+
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+map.attributionControl.addAttribution('(c) City of Toronto, Open Government Licence - Toronto');
+
+function style(props, zoom) {
+  const creek = props.class === 'Creek/Tributary';
+  const weight = zoom < 12 ? 1 : zoom < 15 ? 1.5 : zoom < 17 ? 2.5 : 4;
+  return { color: creek ? '#63b3ed' : '#2b6cb0', weight: weight, opacity: 0.9 };
+}
+
+const layer = L.vectorGrid.protobuf('tiles/vector/{z}/{x}/{y}.pbf', {
+  rendererFactory: L.canvas.tile,
+  minZoom: 9,
+  maxZoom: 19,
+  maxNativeZoom: 19,
+  interactive: true,
+  vectorTileLayerStyles: { 'waterways': style }
+}).addTo(map);
+
+layer.on('click', function (e) {
+  const p = e.layer.properties || {};
+  const name = p.name || '(unnamed watercourse)';
+  L.popup().setLatLng(e.latlng)
+    .setContent('<b>' + name + '</b><br>' + (p.class || ''))
+    .openOn(map);
+});
+
+// Name labels: a small point layer, shown only when zoomed in enough.
+const labels = L.layerGroup();
+const LABEL_MIN_ZOOM = 12;
+fetch('labels.geojson').then(r => r.json()).then(fc => {
+  L.geoJSON(fc, {
+    pointToLayer: (f, latlng) => L.marker(latlng, {
+      interactive: false,
+      icon: L.divIcon({ className: 'wlabel', html: f.properties.name, iconSize: null })
+    })
+  }).addTo(labels);
+  updateLabels();
+});
+function updateLabels() {
+  if (map.getZoom() >= LABEL_MIN_ZOOM) { if (!map.hasLayer(labels)) labels.addTo(map); }
+  else if (map.hasLayer(labels)) { map.removeLayer(labels); }
+}
+map.on('zoomend', updateLabels);
+</script>
+</body>
+</html>
