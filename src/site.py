@@ -47,6 +47,7 @@ _TEMPLATE = """<!DOCTYPE html>
     text-shadow: -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff, 1px 1px 1px #fff;
   }
 </style>
+<script data-goatcounter="https://osm-toronto.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </head>
 <body>
 <div id="map"></div>
